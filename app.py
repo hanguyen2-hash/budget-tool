@@ -153,8 +153,12 @@ with tabs[0]:
             cogs_boosting = budget['money'] * 0.15 # 15% chạy Ads
             margin = budget['money'] - cogs_influencer - cogs_boosting - internal_cost
             margin_pct = (margin / budget['money']) * 100 if budget['money'] > 0 else 0
+# --- TÍNH TOÁN LOGIC MÀU SẮC ---
+            # Nếu Margin dương (>0) thì màu Xanh, âm thì màu Đỏ
+            margin_color = "#2E7D32" if margin >= 0 else "#D32F2F"
+            earning_color = "#2E7D32" if margin >= 0 else "#D32F2F"
 
-            # --- RENDER HTML CARD (GIỐNG HỆT ẢNH) ---
+            # --- RENDER HTML CARD ---
             st.markdown(f"""
             <div style="background-color: #D32F2F; color: white; padding: 10px; text-align: center; border-radius: 5px 5px 0 0;">
                 <h3 style="margin:0; color: white;">{budget['name']}</h3>
@@ -207,14 +211,15 @@ with tabs[0]:
                 
                 <div style="display: flex; justify-content: space-between;">
                     <strong>NET EARNINGS</strong>
-                    <strong style="color: #2E7D32;">${margin:,.0f}</strong>
+                    <strong style="color: {earning_color};">${margin:,.0f}</strong>
                 </div>
                  <div style="display: flex; justify-content: space-between;">
                     <span>Margin %</span>
-                    <strong style="color: #D32F2F;">{margin_pct:.1f}%</strong>
+                    <strong style="color: {margin_color};">{margin_pct:.1f}%</strong>
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
 
 # === CÁC TAB CHI TIẾT (GIỮ NGUYÊN CODE CŨ) ===
 for i, budget in enumerate(st.session_state.budgets):
