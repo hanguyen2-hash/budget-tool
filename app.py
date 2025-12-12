@@ -5,8 +5,8 @@ import numpy as np
 # --- 1. CẤU HÌNH TRANG ---
 st.set_page_config(page_title="Agency Resource Estimator", layout="wide")
 
-st.title("🤖 Project Hours Estimator (Tabs View)")
-st.caption("Quản lý chi tiết từng kịch bản ngân sách")
+st.title("🤖 Project Hours Estimator (Compare Mode)")
+st.caption("So sánh tổng quan và xem chi tiết từng kịch bản")
 st.markdown("---")
 
 # --- 2. KHAI BÁO HỆ SỐ MÔ HÌNH (GIỮ NGUYÊN) ---
@@ -73,6 +73,13 @@ def calculate_hours_for_option(coeffs, inputs):
         
     return np.exp(linear_y)
 
+# Hàm phụ trợ để tính tổng giờ cho 1 budget (để dùng cho Summary)
+def get_total_hours(budget):
+    total = 0
+    for role, coeffs in MODEL_COEFFICIENTS.items():
+        total += calculate_hours_for_option(coeffs, budget)
+    return total
+
 # --- 5. SIDEBAR: NHẬP LIỆU ---
 with st.sidebar:
     st.header("🎚️ Project Parameters")
@@ -101,19 +108,73 @@ with st.sidebar:
             if len(st.session_state.budgets) > 1:
                 st.button("🗑️ Delete", key=f"del_{unique_id}", on_click=delete_budget, args=(i,), type="primary")
 
-# --- 6. KHU VỰC HIỂN THỊ (TAB VIEW) ---
+# --- 6. MAIN AREA: TẠO TABS ---
 if not st.session_state.budgets:
     st.warning("Please add an option from the sidebar.")
     st.stop()
 
-# Lấy danh sách tên các Tabs từ dữ liệu
-tab_names = [b['name'] for b in st.session_state.budgets]
-tabs = st.tabs(tab_names) # Tạo Tabs động
+# Tạo danh sách tên tab: Tab đầu là Summary, các tab sau là tên Option
+tab_names = ["📊 COMPARE ALL"] + [b['name'] for b in st.session_state.budgets]
+tabs = st.tabs(tab_names)
 
-# Lặp qua từng Tab để hiển thị nội dung
-for tab, budget in zip(tabs, st.session_state.budgets):
-    with tab:
-        # --- BƯỚC TÍNH TOÁN ---
+# --- TAB 1: SUMMARY / COMPARISON ---
+with tabs[0]:
+    st.subheader("Leaderboard Summary")
+    
+    # 1. Gom dữ liệu để so sánh
+    summary_data = []
+    for budget in st.session_state.budgets:
+        t_hours = get_total_hours(budget)
+        est_cost = t_hours * 100 # Internal Cost giả định
+        
+        # Tính ROI giả định (Ví dụ: Reach / Staff Cost)
+        # Giả sử reach = creators * 15000
+        est_reach = budget['creators'] * 15000 
+        efficiency = est_reach / t_hours if t_hours > 0 else 0
+        
+        summary_data.append({
+            "Option Name": budget['name'],
+            "Total Budget": budget['money'],
+            "Total Staff Hours": round(t_hours, 1),
+            "Internal Cost ($)": round(est_cost, 0),
+            "Creators": budget['creators'],
+            "Duration (Wks)": budget['duration']
+        })
+    
+    df_summary = pd.DataFrame(summary_data)
+    
+    # 2. Hiển thị Bảng so sánh
+    st.dataframe(
+        df_summary,
+        column_config={
+            "Total Budget": st.column_config.NumberColumn(format="$%d"),
+            "Internal Cost ($)": st.column_config.NumberColumn(format="$%d"),
+            "Total Staff Hours": st.column_config.ProgressColumn(
+                "Staff Load", 
+                format="%.1f hrs", 
+                min_value=0, 
+                max_value=max(df_summary["Total Staff Hours"])*1.2
+            ),
+        },
+        use_container_width=True,
+        hide_index=True
+    )
+    
+    # 3. Biểu đồ so sánh trực quan
+    col1, col2 = st.columns(2)
+    with col1:
+        st.caption("💰 Budget Comparison")
+        st.bar_chart(df_summary.set_index("Option Name")["Total Budget"], color="#4CAF50")
+    with col2:
+        st.caption("⏱️ Staff Hours Comparison")
+        st.bar_chart(df_summary.set_index("Option Name")["Total Staff Hours"], color="#D32F2F")
+
+# --- CÁC TAB CHI TIẾT (DETAIL TABS) ---
+# Duyệt qua các tabs còn lại (từ index 1 trở đi) tương ứng với từng budget
+for i, budget in enumerate(st.session_state.budgets):
+    with tabs[i + 1]: # +1 vì tab 0 là Summary
+        
+        # --- TÍNH TOÁN CHI TIẾT ---
         total_hours_option = 0
         breakdown = []
         
@@ -124,43 +185,35 @@ for tab, budget in zip(tabs, st.session_state.budgets):
             
         est_cost = total_hours_option * 100 
         
-        # --- HIỂN THỊ CARD TỔNG QUAN ---
+        # --- VISUAL CARD ---
         st.markdown(f"""
-        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 20px;">
+            <h3 style="margin-top:0; color: #333;">Details for: {budget['name']}</h3>
+            <div style="display: flex; gap: 40px; margin-top: 15px;">
                 <div>
-                    <h2 style="margin: 0; color: #333;">${budget['money']:,.0f}</h2>
-                    <p style="margin: 0; color: #666;">Total Budget</p>
+                    <span style="font-size: 24px; font-weight: bold; color: #2E7D32;">${budget['money']:,.0f}</span><br>
+                    <span style="color: gray;">Budget</span>
                 </div>
-                <div style="text-align: right;">
-                    <h2 style="margin: 0; color: #D32F2F;">{total_hours_option:,.1f} Hours</h2>
-                    <p style="margin: 0; color: #666;">Est. Staff Time (Internal Cost: ${est_cost:,.0f})</p>
+                <div>
+                    <span style="font-size: 24px; font-weight: bold; color: #C62828;">{total_hours_option:,.1f}</span><br>
+                    <span style="color: gray;">Staff Hours</span>
                 </div>
-            </div>
-            <hr>
-            <div style="display: flex; gap: 30px;">
-                <span><strong>👥 Creators:</strong> {budget['creators']}</span>
-                <span><strong>⏳ Duration:</strong> {budget['duration']} Weeks</span>
-                <span><strong>🏭 Sector:</strong> {budget['sector']}</span>
-                <span><strong>🔎 Vetting:</strong> {budget['vetting']}</span>
+                 <div>
+                    <span style="font-size: 24px; font-weight: bold; color: #1565C0;">{budget['creators']}</span><br>
+                    <span style="color: gray;">Creators</span>
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        # --- HIỂN THỊ CHI TIẾT (BẢNG + BIỂU ĐỒ) ---
-        col1, col2 = st.columns([1, 2]) # Chia cột lệch (Bảng nhỏ, Biểu đồ to)
-        
+        # --- BẢNG & BIỂU ĐỒ ---
+        c1, c2 = st.columns([1, 1])
         df_breakdown = pd.DataFrame(breakdown)
         
-        with col1:
-            st.subheader("📋 Role Breakdown")
-            # Highlight các role tốn nhiều giờ nhất
-            st.dataframe(
-                df_breakdown.style.background_gradient(cmap="Reds", subset=["Hours"]),
-                use_container_width=True,
-                hide_index=True
-            )
+        with c1:
+            st.write("##### 📋 Breakdown by Role")
+            st.dataframe(df_breakdown, use_container_width=True, hide_index=True)
             
-        with col2:
-            st.subheader("📊 Visualization")
+        with c2:
+            st.write("##### 📊 Visual")
             st.bar_chart(df_breakdown.set_index("Role"))
