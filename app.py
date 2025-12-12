@@ -10,26 +10,48 @@ st.caption("Tạo báo giá và ước tính giờ nhân sự tự động")
 st.markdown("---")
 
 # --- 2. HỆ SỐ MÔ HÌNH (GIỮ NGUYÊN) ---
+# --- THAY THẾ ĐOẠN NÀY TRONG APP.PY ---
+
 MODEL_COEFFICIENTS = {
     "Delivery Chief": {
-        "Intercept": 1.5, "guaranteed_creators": 0.02, "duration_weeks": 0.05,
-        "Client_Difficulty_Rating": 0.1, "vn_vetting_yes": 0.0, "Sector_Public": 0.2
+        "Intercept": -1.0, # Giảm từ 1.5 xuống -1.0
+        "guaranteed_creators": 0.005, 
+        "duration_weeks": 0.02,
+        "Client_Difficulty_Rating": 0.05, 
+        "vn_vetting_yes": 0.0, 
+        "Sector_Public": 0.1
     },
     "Acct Supervisor US": {
-        "Intercept": 2.0, "guaranteed_creators": 0.05, "duration_weeks": 0.08,
-        "Client_Difficulty_Rating": 0.15, "vn_vetting_yes": 0.1, "Sector_Public": 0.0
+        "Intercept": 0.5, # Giảm từ 2.0 xuống 0.5
+        "guaranteed_creators": 0.01, 
+        "duration_weeks": 0.03,
+        "Client_Difficulty_Rating": 0.1, 
+        "vn_vetting_yes": 0.05, 
+        "Sector_Public": 0.0
     },
     "Acct Manager US": {
-        "Intercept": 3.2, "guaranteed_creators": 0.1, "duration_weeks": 0.12,
-        "Client_Difficulty_Rating": 0.2, "vn_vetting_yes": 0.0, "Sector_Public": 0.1
+        "Intercept": 1.2, # Giảm từ 3.2 xuống 1.2 (Quan trọng)
+        "guaranteed_creators": 0.015, 
+        "duration_weeks": 0.05,
+        "Client_Difficulty_Rating": 0.1, 
+        "vn_vetting_yes": 0.0, 
+        "Sector_Public": 0.1
     },
     "Assistant SA": {
-        "Intercept": 3.0, "guaranteed_creators": 0.15, "duration_weeks": 0.1,
-        "Client_Difficulty_Rating": 0.05, "vn_vetting_yes": 0.3, "Sector_Public": 0.0
+        "Intercept": 1.0, # Giảm từ 3.0 xuống 1.0
+        "guaranteed_creators": 0.02, 
+        "duration_weeks": 0.05,
+        "Client_Difficulty_Rating": 0.02, 
+        "vn_vetting_yes": 0.1, 
+        "Sector_Public": 0.0
     },
     "Tech Prod Head": {
-        "Intercept": 0.5, "guaranteed_creators": 0.01, "duration_weeks": 0.02,
-        "Client_Difficulty_Rating": 0.0, "vn_vetting_yes": 0.0, "Sector_Public": 0.0
+        "Intercept": -2.0, 
+        "guaranteed_creators": 0.001, 
+        "duration_weeks": 0.01,
+        "Client_Difficulty_Rating": 0.0, 
+        "vn_vetting_yes": 0.0, 
+        "Sector_Public": 0.0
     }
 }
 
