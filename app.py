@@ -126,7 +126,7 @@ tab_names = ["📊 EXECUTIVE SUMMARY"] + [f"🔎 {b['name']} Details" for b in s
 tabs = st.tabs(tab_names)
 
 # === TAB 1: SUMMARY GIỐNG ẢNH ===
-# === TAB 1: SUMMARY GIỐNG ẢNH ===
+# === TAB 1: SUMMARY (ĐÃ SỬA LỖI HIỂN THỊ TRIỆT ĐỂ) ===
 with tabs[0]:
     # Tạo cột động dựa trên số lượng option
     cols = st.columns(len(st.session_state.budgets))
@@ -139,6 +139,7 @@ with tabs[0]:
             for role, coeffs in MODEL_COEFFICIENTS.items():
                 hrs = calculate_hours_for_option(coeffs, budget)
                 total_hours += hrs
+                # Tạo các dòng nhỏ breakdown
                 breakdown_html += f"<div><small>{role}: {int(hrs)} hrs</small></div>"
             
             internal_cost = total_hours * 100 
@@ -155,71 +156,74 @@ with tabs[0]:
             earning_color = "#2E7D32" if margin >= 0 else "#D32F2F"
 
             # --- RENDER HTML CARD ---
-            # QUAN TRỌNG: Đoạn HTML bên dưới đã được kéo sát lề trái.
-            # ĐỪNG THỤT ĐẦU DÒNG (INDENT) CÁC DÒNG HTML NÀY.
-            html_content = f"""
-<div style="background-color: #D32F2F; color: white; padding: 10px; text-align: center; border-radius: 5px 5px 0 0;">
-    <h3 style="margin:0; color: white;">{budget['name']}</h3>
-    <h1 style="margin:0; font-size: 32px; color: white;">${budget['money']:,.0f}</h1>
-    <small>discounted from ${budget['money']*1.1:,.0f} market value</small>
-</div>
+            # Kỹ thuật: Viết HTML thoải mái, sau đó dùng lệnh .strip() để làm sạch
+            raw_html = f"""
+                <div style="background-color: #D32F2F; color: white; padding: 10px; text-align: center; border-radius: 5px 5px 0 0;">
+                    <h3 style="margin:0; color: white;">{budget['name']}</h3>
+                    <h1 style="margin:0; font-size: 32px; color: white;">${budget['money']:,.0f}</h1>
+                    <small>discounted from ${budget['money']*1.1:,.0f} market value</small>
+                </div>
 
-<div style="background-color: white; padding: 15px; border: 1px solid #ddd; border-top: none;">
-    <h5 style="margin-top:0;">Minimum guarantee</h5>
-    <p><strong>{budget['creators']}+</strong> <span style="color:gray">social posts & stories</span></p>
-    <p><strong>{int(est_reach):,}+</strong> <span style="color:gray">est. reach (not impressions)</span></p>
-    <p><strong>{int(est_impr):,}+</strong> <span style="color:gray">est. impressions</span></p>
-    <p><strong>{max(1, int(budget['creators']/3))}+</strong> <span style="color:gray">trusted messengers</span></p>
-</div>
+                <div style="background-color: white; padding: 15px; border: 1px solid #ddd; border-top: none;">
+                    <h5 style="margin-top:0;">Minimum guarantee</h5>
+                    <p><strong>{budget['creators']}+</strong> <span style="color:gray">social posts & stories</span></p>
+                    <p><strong>{int(est_reach):,}+</strong> <span style="color:gray">est. reach (not impressions)</span></p>
+                    <p><strong>{int(est_impr):,}+</strong> <span style="color:gray">est. impressions</span></p>
+                    <p><strong>{max(1, int(budget['creators']/3))}+</strong> <span style="color:gray">trusted messengers</span></p>
+                </div>
 
-<div style="background-color: #E8F5E9; padding: 15px; border: 1px solid #ddd; margin-top: -1px;">
-    <h5 style="margin-top:0; color: #D32F2F;">NOTE for Delivery Team</h5>
-    <p style="margin-bottom: 5px;"><strong>{int(total_hours)} est. Agency staff hours</strong></p>
-    <div style="padding-left: 10px; color: #555; margin-bottom: 10px;">
-        {breakdown_html}
-    </div>
-    <small>• Avg IG follower: 19,500</small><br>
-    <small>• CPM (boosting): $31.47</small>
-</div>
+                <div style="background-color: #E8F5E9; padding: 15px; border: 1px solid #ddd; margin-top: -1px;">
+                    <h5 style="margin-top:0; color: #D32F2F;">NOTE for Delivery Team</h5>
+                    <p style="margin-bottom: 5px;"><strong>{int(total_hours)} est. Agency staff hours</strong></p>
+                    <div style="padding-left: 10px; color: #555; margin-bottom: 10px;">
+                        {breakdown_html}
+                    </div>
+                    <small>• Avg IG follower: 19,500</small><br>
+                    <small>• CPM (boosting): $31.47</small>
+                </div>
 
-<div style="background-color: #FFF3E0; padding: 15px; border: 1px solid #ddd; margin-top: -1px; border-radius: 0 0 5px 5px;">
-    <h5 style="margin-top:0; color: #D32F2F;">DEAL MARGIN Analysis</h5>
-    
-    <div style="display: flex; justify-content: space-between;">
-        <span>Campaign Fee</span>
-        <strong>${budget['money']:,.0f}</strong>
-    </div>
-    
-    <div style="display: flex; justify-content: space-between; color: #555;">
-        <span>COGS - Boosting</span>
-        <span>-${cogs_boosting:,.0f}</span>
-    </div>
-    
-    <div style="display: flex; justify-content: space-between; color: #555;">
-        <span>COGS - Influencers</span>
-        <span>-${cogs_influencer:,.0f}</span>
-    </div>
-    
-    <div style="display: flex; justify-content: space-between; color: #555;">
-        <span>Internal Staff Cost</span>
-        <span>-${internal_cost:,.0f}</span>
-    </div>
-    
-    <hr style="margin: 5px 0;">
-    
-    <div style="display: flex; justify-content: space-between;">
-        <strong>NET EARNINGS</strong>
-        <strong style="color: {earning_color};">${margin:,.0f}</strong>
-    </div>
-    <div style="display: flex; justify-content: space-between;">
-        <span>Margin %</span>
-        <strong style="color: {margin_color};">{margin_pct:.1f}%</strong>
-    </div>
-</div>
-"""
-            # Kết thúc chuỗi HTML
+                <div style="background-color: #FFF3E0; padding: 15px; border: 1px solid #ddd; margin-top: -1px; border-radius: 0 0 5px 5px;">
+                    <h5 style="margin-top:0; color: #D32F2F;">DEAL MARGIN Analysis</h5>
+                    
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Campaign Fee</span>
+                        <strong>${budget['money']:,.0f}</strong>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; color: #555;">
+                        <span>COGS - Boosting</span>
+                        <span>-${cogs_boosting:,.0f}</span>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; color: #555;">
+                        <span>COGS - Influencers</span>
+                        <span>-${cogs_influencer:,.0f}</span>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; color: #555;">
+                        <span>Internal Staff Cost</span>
+                        <span>-${internal_cost:,.0f}</span>
+                    </div>
+                    
+                    <hr style="margin: 5px 0;">
+                    
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong>NET EARNINGS</strong>
+                        <strong style="color: {earning_color};">${margin:,.0f}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Margin %</span>
+                        <strong style="color: {margin_color};">{margin_pct:.1f}%</strong>
+                    </div>
+                </div>
+            """
             
-            st.markdown(html_content, unsafe_allow_html=True)
+            # --- FIX FINAL: CẮT BỎ MỌI KHOẢNG TRẮNG THỪA ---
+            # Dòng code này sẽ duyệt qua từng dòng HTML và xóa sạch khoảng trắng đầu dòng
+            # Đảm bảo Streamlit luôn nhận diện đúng code HTML
+            clean_html = "\n".join([line.strip() for line in raw_html.split("\n")])
+            
+            st.markdown(clean_html, unsafe_allow_html=True)
             
 # === CÁC TAB CHI TIẾT (GIỮ NGUYÊN CODE CŨ) ===
 for i, budget in enumerate(st.session_state.budgets):
