@@ -160,68 +160,71 @@ with tabs[0]:
             # LƯU Ý: Các thẻ HTML bên trong f"""...""" phải nằm sát lề trái
             # hoặc không được thụt quá sâu để tránh bị hiểu nhầm là Code Block.
             
-            html_content = f"""
-<div style="background-color: #D32F2F; color: white; padding: 10px; text-align: center; border-radius: 5px 5px 0 0;">
-    <h3 style="margin:0; color: white;">{budget['name']}</h3>
-    <h1 style="margin:0; font-size: 32px; color: white;">${budget['money']:,.0f}</h1>
-    <small>discounted from ${budget['money']*1.1:,.0f} market value</small>
-</div>
+# --- FIX: DÙNG TEXTWRAP.DEDENT ---
+            # Hàm này sẽ tự động cắt bỏ khoảng trắng thừa do thụt đầu dòng trong code
+            html_content = textwrap.dedent(f"""
+                <div style="background-color: #D32F2F; color: white; padding: 10px; text-align: center; border-radius: 5px 5px 0 0;">
+                    <h3 style="margin:0; color: white;">{budget['name']}</h3>
+                    <h1 style="margin:0; font-size: 32px; color: white;">${budget['money']:,.0f}</h1>
+                    <small>discounted from ${budget['money']*1.1:,.0f} market value</small>
+                </div>
 
-<div style="background-color: white; padding: 15px; border: 1px solid #ddd; border-top: none;">
-    <h5 style="margin-top:0;">Minimum guarantee</h5>
-    <p><strong>{budget['creators']}+</strong> <span style="color:gray">social posts & stories</span></p>
-    <p><strong>{int(est_reach):,}+</strong> <span style="color:gray">est. reach (not impressions)</span></p>
-    <p><strong>{int(est_impr):,}+</strong> <span style="color:gray">est. impressions</span></p>
-    <p><strong>{max(1, int(budget['creators']/3))}+</strong> <span style="color:gray">trusted messengers</span></p>
-</div>
+                <div style="background-color: white; padding: 15px; border: 1px solid #ddd; border-top: none;">
+                    <h5 style="margin-top:0;">Minimum guarantee</h5>
+                    <p><strong>{budget['creators']}+</strong> <span style="color:gray">social posts & stories</span></p>
+                    <p><strong>{int(est_reach):,}+</strong> <span style="color:gray">est. reach (not impressions)</span></p>
+                    <p><strong>{int(est_impr):,}+</strong> <span style="color:gray">est. impressions</span></p>
+                    <p><strong>{max(1, int(budget['creators']/3))}+</strong> <span style="color:gray">trusted messengers</span></p>
+                </div>
 
-<div style="background-color: #E8F5E9; padding: 15px; border: 1px solid #ddd; margin-top: -1px;">
-    <h5 style="margin-top:0; color: #D32F2F;">NOTE for Delivery Team</h5>
-    <p style="margin-bottom: 5px;"><strong>{int(total_hours)} est. Agency staff hours</strong></p>
-    <div style="padding-left: 10px; color: #555; margin-bottom: 10px;">
-        {breakdown_html}
-    </div>
-    <small>• Avg IG follower: 19,500</small><br>
-    <small>• CPM (boosting): $31.47</small>
-</div>
+                <div style="background-color: #E8F5E9; padding: 15px; border: 1px solid #ddd; margin-top: -1px;">
+                    <h5 style="margin-top:0; color: #D32F2F;">NOTE for Delivery Team</h5>
+                    <p style="margin-bottom: 5px;"><strong>{int(total_hours)} est. Agency staff hours</strong></p>
+                    <div style="padding-left: 10px; color: #555; margin-bottom: 10px;">
+                        {breakdown_html}
+                    </div>
+                    <small>• Avg IG follower: 19,500</small><br>
+                    <small>• CPM (boosting): $31.47</small>
+                </div>
 
-<div style="background-color: #FFF3E0; padding: 15px; border: 1px solid #ddd; margin-top: -1px; border-radius: 0 0 5px 5px;">
-    <h5 style="margin-top:0; color: #D32F2F;">DEAL MARGIN Analysis</h5>
-    
-    <div style="display: flex; justify-content: space-between;">
-        <span>Campaign Fee</span>
-        <strong>${budget['money']:,.0f}</strong>
-    </div>
-    
-    <div style="display: flex; justify-content: space-between; color: #555;">
-        <span>COGS - Boosting</span>
-        <span>-${cogs_boosting:,.0f}</span>
-    </div>
-    
-    <div style="display: flex; justify-content: space-between; color: #555;">
-        <span>COGS - Influencers</span>
-        <span>-${cogs_influencer:,.0f}</span>
-    </div>
-    
-    <div style="display: flex; justify-content: space-between; color: #555;">
-        <span>Internal Staff Cost</span>
-        <span>-${internal_cost:,.0f}</span>
-    </div>
-    
-    <hr style="margin: 5px 0;">
-    
-    <div style="display: flex; justify-content: space-between;">
-        <strong>NET EARNINGS</strong>
-        <strong style="color: {earning_color};">${margin:,.0f}</strong>
-    </div>
-     <div style="display: flex; justify-content: space-between;">
-        <span>Margin %</span>
-        <strong style="color: {margin_color};">{margin_pct:.1f}%</strong>
-    </div>
-</div>
-"""
+                <div style="background-color: #FFF3E0; padding: 15px; border: 1px solid #ddd; margin-top: -1px; border-radius: 0 0 5px 5px;">
+                    <h5 style="margin-top:0; color: #D32F2F;">DEAL MARGIN Analysis</h5>
+                    
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Campaign Fee</span>
+                        <strong>${budget['money']:,.0f}</strong>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; color: #555;">
+                        <span>COGS - Boosting</span>
+                        <span>-${cogs_boosting:,.0f}</span>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; color: #555;">
+                        <span>COGS - Influencers</span>
+                        <span>-${cogs_influencer:,.0f}</span>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; color: #555;">
+                        <span>Internal Staff Cost</span>
+                        <span>-${internal_cost:,.0f}</span>
+                    </div>
+                    
+                    <hr style="margin: 5px 0;">
+                    
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong>NET EARNINGS</strong>
+                        <strong style="color: {earning_color};">${margin:,.0f}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Margin %</span>
+                        <strong style="color: {margin_color};">{margin_pct:.1f}%</strong>
+                    </div>
+                </div>
+            """)
+            
             st.markdown(html_content, unsafe_allow_html=True)
-
+            
 # === CÁC TAB CHI TIẾT (GIỮ NGUYÊN CODE CŨ) ===
 for i, budget in enumerate(st.session_state.budgets):
     with tabs[i + 1]:
