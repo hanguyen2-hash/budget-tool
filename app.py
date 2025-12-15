@@ -156,7 +156,7 @@ with tabs[0]:
             earning_color = "#2E7D32" if margin >= 0 else "#D32F2F"
 
             # --- RENDER HTML CARD ---
-)
+
 
 
 # === CÁC TAB CHI TIẾT (GIỮ NGUYÊN CODE CŨ) ===
