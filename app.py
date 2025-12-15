@@ -5,12 +5,9 @@ import numpy as np
 # --- 1. CẤU HÌNH TRANG ---
 st.set_page_config(page_title="Agency Budget Proposal", layout="wide")
 
-st.title("🤖 Agency Budget Proposal Generator")
-st.caption("Tạo báo giá và ước tính giờ nhân sự tự động")
+st.title("🤖 Budget Generator")
 st.markdown("---")
 
-# --- 2. HỆ SỐ MÔ HÌNH (GIỮ NGUYÊN) ---
-# --- THAY THẾ ĐOẠN NÀY TRONG APP.PY ---
 
 MODEL_COEFFICIENTS = {
     "Delivery Chief": {
