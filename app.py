@@ -129,4 +129,121 @@ st.markdown("---")
 # ==========================================
 # 2. CAMPAIGN MIX
 # ==========================================
-col_sidebar, col_
+col_sidebar, col_main = st.columns([1.2, 2])
+
+with col_sidebar:
+    st.header("1. Campaign Setup")
+    
+    platforms = st.multiselect("Channels:", ["Instagram", "TikTok", "X (Twitter)"], default=["Instagram", "TikTok"])
+    
+    # Input Budget format số nguyên
+    campaign_fee = st.number_input("Client Budget ($)", value=125000, step=5000, format="%d")
+    st.divider()
+    st.info("👇 Configure Quantity & Content below")
+
+# --- DATA EDITOR CHO MIX ---
+base_data = [
+    {"Tier": "Nano (1k-10k)",     "Qty IG": 3, "IG Posts": 2, "IG Stories": 1, "Qty TikTok": 1, "TT Videos": 1, "Qty X": 0, "X Tweets": 0},
+    {"Tier": "Micro (10k-50k)",   "Qty IG": 1, "IG Posts": 2, "IG Stories": 1, "Qty TikTok": 1, "TT Videos": 1, "Qty X": 0, "X Tweets": 0},
+    {"Tier": "Mid (50k-150k)",    "Qty IG": 1, "IG Posts": 2, "IG Stories": 0, "Qty TikTok": 1, "TT Videos": 1, "Qty X": 0, "X Tweets": 0},
+    {"Tier": "Macro (150k-500k)", "Qty IG": 0, "IG Posts": 1, "IG Stories": 1, "Qty TikTok": 0, "TT Videos": 1, "Qty X": 0, "X Tweets": 0},
+    {"Tier": "Mega (500k+)",      "Qty IG": 0, "IG Posts": 1, "IG Stories": 1, "Qty TikTok": 0, "TT Videos": 1, "Qty X": 0, "X Tweets": 0},
+]
+full_df = pd.DataFrame(base_data)
+
+visible_cols = ["Tier"]
+column_config_dynamic = {"Tier": st.column_config.TextColumn("Tier", disabled=True, width="medium")}
+
+# Helper format số lượng (Quantity)
+qty_fmt = st.column_config.NumberColumn(format="%d", min_value=0) # Số nguyên
+
+if "Instagram" in platforms:
+    visible_cols.extend(["Qty IG", "IG Posts", "IG Stories"])
+    column_config_dynamic.update({
+        "Qty IG": st.column_config.NumberColumn("IG 👤", format="%d", min_value=0), 
+        "IG Posts": qty_fmt, 
+        "IG Stories": qty_fmt
+    })
+
+if "TikTok" in platforms:
+    visible_cols.extend(["Qty TikTok", "TT Videos"])
+    column_config_dynamic.update({
+        "Qty TikTok": st.column_config.NumberColumn("TT 👤", format="%d", min_value=0), 
+        "TT Videos": qty_fmt
+    })
+
+if "X (Twitter)" in platforms:
+    visible_cols.extend(["Qty X", "X Tweets"])
+    column_config_dynamic.update({
+        "Qty X": st.column_config.NumberColumn("X 👤", format="%d", min_value=0), 
+        "X Tweets": qty_fmt
+    })
+
+edited_mix_df = st.data_editor(
+    full_df[visible_cols],
+    column_config=column_config_dynamic,
+    hide_index=True,
+    use_container_width=True,
+    key="mix_editor"
+)
+
+# --- TÍNH TOÁN ---
+total_creators, cogs_influencer, total_reach, breakdown = calculate_cost(edited_mix_df, DYNAMIC_PRICING_DB)
+
+cogs_boosting = campaign_fee * 0.15
+internal_cost = (100 + (total_creators * 3)) * 100
+total_cogs = cogs_influencer + cogs_boosting + internal_cost
+margin = campaign_fee - total_cogs
+margin_pct = (margin / campaign_fee * 100) if campaign_fee > 0 else 0
+margin_color = "#2E7D32" if margin >= 0 else "#D32F2F"
+
+# --- HIỂN THỊ KẾT QUẢ ---
+with col_main:
+    # Các biến trong f-string đều thêm :,.0f để có dấu phẩy
+    html_content = textwrap.dedent(f"""
+        <div style="background-color: #FFF8E1; padding: 20px; border-radius: 10px; border: 1px solid #FFECB3;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin:0; color: #F57F17;">Proposal Analysis</h2>
+                <div style="text-align: right;">
+                    <span style="font-size: 2em; font-weight: bold; color: {margin_color}">${margin:,.0f}</span><br>
+                    <span style="color: {margin_color}; font-weight: bold;">{margin_pct:.1f}% Margin</span>
+                </div>
+            </div>
+            <hr>
+            <div style="display: flex; justify-content: space-between;">
+                <strong>TOTAL REVENUE</strong>
+                <strong>${campaign_fee:,.0f}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; color: #D32F2F;">
+                <span>Total Cost</span>
+                <span>-${total_cogs:,.0f}</span>
+            </div>
+            
+            <div style="background: white; padding: 10px; margin-top: 10px; border-radius: 5px; font-size: 0.9em;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>• Influencers Cost</span>
+                    <strong>${cogs_influencer:,.0f}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>• Boosting (15%)</span>
+                    <strong>${cogs_boosting:,.0f}</strong>
+                </div>
+                 <div style="display: flex; justify-content: space-between;">
+                    <span>• Internal Staff</span>
+                    <strong>${internal_cost:,.0f}</strong>
+                </div>
+            </div>
+        </div>
+    """)
+    
+    clean_html = "\n".join([line.strip() for line in html_content.split("\n")])
+    st.markdown(clean_html, unsafe_allow_html=True)
+    
+    st.write("")
+    
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Creators", f"{total_creators}")
+    # Phần hiển thị kết quả (Metric) vẫn dùng dấu phẩy được vì nó là text
+    m2.metric("Total Reach", f"{int(total_reach):,}") 
+    cpm = (cogs_influencer/total_reach*1000) if total_reach > 0 else 0
+    m3.metric("CPM (Content)", f"${cpm:,.2f}")
