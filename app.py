@@ -5,8 +5,7 @@ import textwrap
 
 st.set_page_config(page_title="Dynamic Budget Tool", layout="wide")
 
-# --- 1. CẤU HÌNH DỮ LIỆU GỐC (BASE RATE CARD) ---
-# Dữ liệu từ ảnh bạn cung cấp
+# --- 1. CẤU HÌNH DỮ LIỆU GỐC ---
 INITIAL_RATE_CARD = [
     {"Tier": "Nano (1k-10k)",     "IG Flw": 3258,    "IG Post ($)": 268.22,   "IG Story ($)": 160.24,  "TT Flw": 4373,    "TT Video ($)": 184.57,  "X Flw": 4952,    "X Tweet ($)": 131.34},
     {"Tier": "Micro (10k-50k)",   "IG Flw": 21417,   "IG Post ($)": 443.84,   "IG Story ($)": 301.84,  "TT Flw": 25013,   "TT Video ($)": 335.92,  "X Flw": 21765,   "X Tweet ($)": 207.33},
@@ -15,8 +14,7 @@ INITIAL_RATE_CARD = [
     {"Tier": "Mega (500k+)",      "IG Flw": 2206768, "IG Post ($)": 11059.85, "IG Story ($)": 7525.33, "TT Flw": 2087679, "TT Video ($)": 5757.25, "X Flw": 1838483, "X Tweet ($)": 4656.37},
 ]
 
-# --- 2. HÀM CHUYỂN ĐỔI DATAFRAME -> DICTIONARY ---
-# Hàm này giúp biến bảng người dùng đã sửa thành format mà hàm tính toán hiểu được
+# --- 2. HÀM CHUYỂN ĐỔI ---
 def convert_df_to_pricing_db(df):
     pricing_db = {}
     for _, row in df.iterrows():
@@ -28,7 +26,7 @@ def convert_df_to_pricing_db(df):
         }
     return pricing_db
 
-# --- 3. HÀM TÍNH TOÁN (CẬP NHẬT NHẬN DYNAMIC DB) ---
+# --- 3. HÀM TÍNH TOÁN ---
 def calculate_cost(mix_df, pricing_db):
     total_cost = 0
     total_reach = 0
@@ -37,12 +35,10 @@ def calculate_cost(mix_df, pricing_db):
 
     for _, row in mix_df.iterrows():
         tier = row['Tier']
-        # Lấy data từ pricing_db mới (được tạo ra từ bảng Rate Card)
         data = pricing_db.get(tier) 
-        
-        if not data: continue # Skip nếu không tìm thấy tier
+        if not data: continue 
 
-        # --- INSTAGRAM ---
+        # IG
         qty_ig = row.get('Qty IG', 0)
         if qty_ig > 0:
             posts = row.get('IG Posts', 0)
@@ -53,7 +49,7 @@ def calculate_cost(mix_df, pricing_db):
             total_creators += qty_ig
             breakdown["IG"] += cost * qty_ig
 
-        # --- TIKTOK ---
+        # TikTok
         qty_tt = row.get('Qty TikTok', 0)
         if qty_tt > 0:
             videos = row.get('TT Videos', 0)
@@ -63,7 +59,7 @@ def calculate_cost(mix_df, pricing_db):
             total_creators += qty_tt
             breakdown["TT"] += cost * qty_tt
 
-        # --- X (TWITTER) ---
+        # X
         qty_x = row.get('Qty X', 0)
         if qty_x > 0:
             tweets = row.get('X Tweets', 0)
@@ -80,71 +76,66 @@ st.title("🤖 Dynamic Budget Tool")
 st.caption("Customize rate cards and campaign mix.")
 
 # ==========================================
-# PHẦN 1: RATE CARD SETTINGS (TÍNH NĂNG MỚI)
+# 1. RATE CARD SETTINGS (ĐÃ THÊM FORMAT SỐ LIỆU)
 # ==========================================
 with st.expander("⚙️ RATE CARD CONFIGURATION (Click to Expand)", expanded=True):
     c1, c2 = st.columns([1, 3])
     
     with c1:
         st.markdown("##### Global Adjustment")
-        # Input % thay đổi giá
         price_adj_pct = st.number_input(
             "Price Change (%)", 
-            min_value=-50.0, 
-            max_value=200.0, 
-            value=0.0, 
-            step=5.0,
-            help="Tăng/Giảm toàn bộ giá trong bảng (VD: nhập 20 để tăng giá 20%)"
+            min_value=-50.0, max_value=200.0, value=0.0, step=5.0,
+            help="Nhập số âm để giảm giá, số dương để tăng giá"
         )
-        
         st.info(f"Multiplier: {1 + price_adj_pct/100:.2f}x")
 
     with c2:
         st.markdown("##### Market Rate Table (Editable)")
-        # 1. Load dữ liệu gốc
         df_rate = pd.DataFrame(INITIAL_RATE_CARD)
         
-        # 2. Áp dụng Price Change (%) vào các cột giá tiền
-        # Logic: Chỉ nhân % cho các cột có ký hiệu ($)
+        # Apply Price Change
         price_cols = [c for c in df_rate.columns if "($)" in c]
         for col in price_cols:
             df_rate[col] = df_rate[col] * (1 + price_adj_pct/100)
 
-        # 3. Hiển thị bảng Editor
+        # CẤU HÌNH CỘT: Thêm format=",.0f" (số) và format="$%.2f" (tiền)
         edited_rate_card = st.data_editor(
             df_rate,
             hide_index=True,
             use_container_width=True,
             column_config={
-                "Tier": st.column_config.TextColumn("Tier", disabled=True),
-                "IG Post ($)": st.column_config.NumberColumn(format="$%.0f"),
-                "IG Story ($)": st.column_config.NumberColumn(format="$%.0f"),
-                "TT Video ($)": st.column_config.NumberColumn(format="$%.0f"),
-                "X Tweet ($)": st.column_config.NumberColumn(format="$%.0f"),
+                "Tier": st.column_config.TextColumn("Tier", disabled=True, width="medium"),
+                
+                # Format số Follower có dấu phẩy (VD: 21,417)
+                "IG Flw": st.column_config.NumberColumn("IG Flw", format=",.0f"),
+                "TT Flw": st.column_config.NumberColumn("TT Flw", format=",.0f"),
+                "X Flw": st.column_config.NumberColumn("X Flw", format=",.0f"),
+                
+                # Format Giá tiền có dấu $ và phẩy (VD: $1,140.22)
+                "IG Post ($)": st.column_config.NumberColumn("IG Post", format="$%.2f"),
+                "IG Story ($)": st.column_config.NumberColumn("IG Story", format="$%.2f"),
+                "TT Video ($)": st.column_config.NumberColumn("TT Video", format="$%.2f"),
+                "X Tweet ($)": st.column_config.NumberColumn("X Tweet", format="$%.2f"),
             }
         )
         
-        # 4. Chuyển đổi dữ liệu từ bảng Editor thành Dictionary để dùng cho tính toán
-        # Điều này giúp: Nếu user sửa tay số liệu trong bảng, code sẽ dùng số đã sửa
         DYNAMIC_PRICING_DB = convert_df_to_pricing_db(edited_rate_card)
 
 st.markdown("---")
 
 # ==========================================
-# PHẦN 2: CAMPAIGN MIX (GIỮ NGUYÊN LOGIC CŨ)
+# 2. CAMPAIGN MIX
 # ==========================================
 col_sidebar, col_main = st.columns([1.2, 2])
 
 with col_sidebar:
     st.header("1. Campaign Setup")
     
-    platforms = st.multiselect(
-        "Channels:",
-        ["Instagram", "TikTok", "X (Twitter)"],
-        default=["Instagram", "TikTok"]
-    )
+    platforms = st.multiselect("Channels:", ["Instagram", "TikTok", "X (Twitter)"], default=["Instagram", "TikTok"])
     
-    campaign_fee = st.number_input("Client Budget ($)", value=125000, step=5000)
+    # Input Budget cũng nên format
+    campaign_fee = st.number_input("Client Budget ($)", value=125000, step=5000, format="%d")
     st.divider()
     st.info("👇 Configure Quantity & Content below")
 
@@ -158,21 +149,33 @@ base_data = [
 ]
 full_df = pd.DataFrame(base_data)
 
-# Lọc cột hiển thị theo channel đã chọn
 visible_cols = ["Tier"]
 column_config_dynamic = {"Tier": st.column_config.TextColumn("Tier", disabled=True, width="medium")}
 
+# Helper format số lượng (Quantity)
+qty_fmt = st.column_config.NumberColumn(format="%d", min_value=0) # Số nguyên
+
 if "Instagram" in platforms:
     visible_cols.extend(["Qty IG", "IG Posts", "IG Stories"])
-    column_config_dynamic.update({"Qty IG": st.column_config.NumberColumn("IG 👤"), "IG Posts": st.column_config.NumberColumn("Post/p"), "IG Stories": st.column_config.NumberColumn("Story/p")})
+    column_config_dynamic.update({
+        "Qty IG": st.column_config.NumberColumn("IG 👤", format="%d", min_value=0), 
+        "IG Posts": qty_fmt, 
+        "IG Stories": qty_fmt
+    })
 
 if "TikTok" in platforms:
     visible_cols.extend(["Qty TikTok", "TT Videos"])
-    column_config_dynamic.update({"Qty TikTok": st.column_config.NumberColumn("TT 👤"), "TT Videos": st.column_config.NumberColumn("Vid/p")})
+    column_config_dynamic.update({
+        "Qty TikTok": st.column_config.NumberColumn("TT 👤", format="%d", min_value=0), 
+        "TT Videos": qty_fmt
+    })
 
 if "X (Twitter)" in platforms:
     visible_cols.extend(["Qty X", "X Tweets"])
-    column_config_dynamic.update({"Qty X": st.column_config.NumberColumn("X 👤"), "X Tweets": st.column_config.NumberColumn("Tweet/p")})
+    column_config_dynamic.update({
+        "Qty X": st.column_config.NumberColumn("X 👤", format="%d", min_value=0), 
+        "X Tweets": qty_fmt
+    })
 
 edited_mix_df = st.data_editor(
     full_df[visible_cols],
@@ -182,10 +185,9 @@ edited_mix_df = st.data_editor(
     key="mix_editor"
 )
 
-# --- TÍNH TOÁN (DÙNG DYNAMIC_PRICING_DB) ---
+# --- TÍNH TOÁN ---
 total_creators, cogs_influencer, total_reach, breakdown = calculate_cost(edited_mix_df, DYNAMIC_PRICING_DB)
 
-# Các chỉ số tài chính
 cogs_boosting = campaign_fee * 0.15
 internal_cost = (100 + (total_creators * 3)) * 100
 total_cogs = cogs_influencer + cogs_boosting + internal_cost
@@ -195,6 +197,7 @@ margin_color = "#2E7D32" if margin >= 0 else "#D32F2F"
 
 # --- HIỂN THỊ KẾT QUẢ ---
 with col_main:
+    # Các biến trong f-string đều thêm :,.0f để có dấu phẩy
     html_content = textwrap.dedent(f"""
         <div style="background-color: #FFF8E1; padding: 20px; border-radius: 10px; border: 1px solid #FFECB3;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -216,7 +219,7 @@ with col_main:
             
             <div style="background: white; padding: 10px; margin-top: 10px; border-radius: 5px; font-size: 0.9em;">
                 <div style="display: flex; justify-content: space-between;">
-                    <span>• Influencers Cost (Based on Rate Card)</span>
+                    <span>• Influencers Cost</span>
                     <strong>${cogs_influencer:,.0f}</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
@@ -237,7 +240,7 @@ with col_main:
     st.write("")
     
     m1, m2, m3 = st.columns(3)
-    m1.metric("Total Creators", total_creators)
-    m2.metric("Total Reach", f"{int(total_reach):,}")
+    m1.metric("Total Creators", f"{total_creators}")
+    m2.metric("Total Reach", f"{int(total_reach):,}") # Có dấu phẩy
     cpm = (cogs_influencer/total_reach*1000) if total_reach > 0 else 0
-    m3.metric("CPM (Influencer Only)", f"${cpm:.2f}")
+    m3.metric("CPM (Content)", f"${cpm:,.2f}") # Có dấu phẩy và 2 số thập phân
