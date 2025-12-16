@@ -5,8 +5,7 @@ import textwrap
 
 st.set_page_config(page_title="Multi-Platform Budget", layout="wide")
 
-# --- 1. DATABASE GIÁ & METRICS (Dữ liệu từ ảnh Excel của bạn) ---
-# Đơn vị: USD
+# --- 1. DATABASE GIÁ & METRICS (Giữ nguyên) ---
 PRICING_DB = {
     "Nano (1k-10k)": {
         "IG": {"flw": 3258, "post": 268.22, "story": 160.24},
@@ -35,40 +34,45 @@ PRICING_DB = {
     }
 }
 
-# --- 2. HÀM TÍNH TOÁN ĐA NỀN TẢNG ---
+# --- 2. HÀM TÍNH TOÁN (ĐÃ UPDATE .get() ĐỂ TRÁNH LỖI KHI ẨN CỘT) ---
 def calculate_multi_platform_cost(df):
     total_cost = 0
     total_reach = 0
     total_creators = 0
-    
-    breakdown = {"IG": 0, "TT": 0, "X": 0} # Để vẽ biểu đồ nếu cần
+    breakdown = {"IG": 0, "TT": 0, "X": 0} 
 
     for _, row in df.iterrows():
         tier = row['Tier']
         data = PRICING_DB[tier]
 
-        # --- TÍNH TOÁN CHO INSTAGRAM ---
-        qty_ig = row['Qty IG']
+        # Sử dụng .get('Column Name', 0) để nếu cột bị ẩn thì mặc định là 0
+        
+        # --- INSTAGRAM ---
+        qty_ig = row.get('Qty IG', 0)
         if qty_ig > 0:
-            cost_one_ig = (data['IG']['post'] * row['IG Posts']) + (data['IG']['story'] * row['IG Stories'])
+            posts = row.get('IG Posts', 0)
+            stories = row.get('IG Stories', 0)
+            cost_one_ig = (data['IG']['post'] * posts) + (data['IG']['story'] * stories)
             total_cost += cost_one_ig * qty_ig
             total_reach += data['IG']['flw'] * qty_ig
             total_creators += qty_ig
             breakdown["IG"] += cost_one_ig * qty_ig
 
-        # --- TÍNH TOÁN CHO TIKTOK ---
-        qty_tt = row['Qty TikTok']
+        # --- TIKTOK ---
+        qty_tt = row.get('Qty TikTok', 0)
         if qty_tt > 0:
-            cost_one_tt = data['TT']['video'] * row['TT Videos']
+            videos = row.get('TT Videos', 0)
+            cost_one_tt = data['TT']['video'] * videos
             total_cost += cost_one_tt * qty_tt
             total_reach += data['TT']['flw'] * qty_tt
             total_creators += qty_tt
             breakdown["TT"] += cost_one_tt * qty_tt
 
-        # --- TÍNH TOÁN CHO X (TWITTER) ---
-        qty_x = row['Qty X']
+        # --- X (TWITTER) ---
+        qty_x = row.get('Qty X', 0)
         if qty_x > 0:
-            cost_one_x = data['X']['tweet'] * row['X Tweets']
+            tweets = row.get('X Tweets', 0)
+            cost_one_x = data['X']['tweet'] * tweets
             total_cost += cost_one_x * qty_x
             total_reach += data['X']['flw'] * qty_x
             total_creators += qty_x
@@ -76,81 +80,88 @@ def calculate_multi_platform_cost(df):
             
     return total_creators, total_cost, total_reach, breakdown
 
-# --- 3. GIAO DIỆN ---
-st.title("🤖 Precision Budget Generator")
-st.caption("Multi-platform pricing based on provided rate card.")
+# --- 3. GIAO DIỆN CHÍNH ---
+st.title("🤖 Smart Budget Generator")
 st.markdown("---")
 
-col_sidebar, col_main = st.columns([1, 2])
+col_sidebar, col_main = st.columns([1.2, 2])
 
 with col_sidebar:
-    st.subheader("1. Campaign Settings")
-    campaign_fee = st.number_input("Total Client Budget ($)", value=125000, step=5000)
+    st.header("⚙️ Configuration")
+    
+    # 1. CHỌN CHANNEL (TÍNH NĂNG MỚI)
+    st.subheader("1. Select Active Channels")
+    platforms = st.multiselect(
+        "Choose platforms for this campaign:",
+        ["Instagram", "TikTok", "X (Twitter)"],
+        default=["Instagram", "TikTok"] # Mặc định chọn 2 cái phổ biến
+    )
     
     st.divider()
-    st.subheader("2. Influencer Matrix")
-    st.info("👇 Enter quantity & deliverables per platform below")
+    
+    # 2. BUDGET INPUT
+    st.subheader("2. Financials")
+    campaign_fee = st.number_input("Total Client Budget ($)", value=125000, step=5000)
 
-# --- 4. DATA EDITOR CHÍNH (MA TRẬN) ---
-# Tạo dữ liệu mặc định khớp với ảnh "FOR CAMPAIGN - INITIAL" bạn gửi
-    default_mix = pd.DataFrame([
-        {
-            "Tier": "Nano (1k-10k)", 
-            "Qty IG": 3, "IG Posts": 2, "IG Stories": 1, 
-            "Qty TikTok": 1, "TT Videos": 2,
-            "Qty X": 0, "X Tweets": 0
-        },
-        {
-            "Tier": "Micro (10k-50k)", 
-            "Qty IG": 1, "IG Posts": 2, "IG Stories": 1, 
-            "Qty TikTok": 1, "TT Videos": 2,
-            "Qty X": 0, "X Tweets": 0
-        },
-        {
-            "Tier": "Mid (50k-150k)", 
-            "Qty IG": 1, "IG Posts": 2, "IG Stories": 0, 
-            "Qty TikTok": 1, "TT Videos": 2,
-            "Qty X": 0, "X Tweets": 0
-        },
-        {
-            "Tier": "Macro (150k-500k)", 
-            "Qty IG": 0, "IG Posts": 1, "IG Stories": 1, 
-            "Qty TikTok": 0, "TT Videos": 1,
-            "Qty X": 0, "X Tweets": 0
-        },
-        {
-            "Tier": "Mega (500k+)", 
-            "Qty IG": 0, "IG Posts": 1, "IG Stories": 1, 
-            "Qty TikTok": 0, "TT Videos": 1,
-            "Qty X": 0, "X Tweets": 0
-        },
-    ])
+    st.divider()
+    st.info("👇 Customize quantity in the table below")
 
-    # Cấu hình bảng nhập liệu để dễ nhìn hơn
-    edited_df = st.data_editor(
-        default_mix,
-        column_config={
-            "Tier": st.column_config.TextColumn("Tier", disabled=True, width="medium"),
-            "Qty IG": st.column_config.NumberColumn("IG 👤", min_value=0, help="Number of Instagram Creators"),
-            "IG Posts": st.column_config.NumberColumn("Post/p", min_value=0, help="Posts per person"),
-            "IG Stories": st.column_config.NumberColumn("Story/p", min_value=0, help="Stories per person"),
-            "Qty TikTok": st.column_config.NumberColumn("TT 👤", min_value=0, help="Number of TikTok Creators"),
-            "TT Videos": st.column_config.NumberColumn("Vid/p", min_value=0, help="Videos per person"),
-            "Qty X": st.column_config.NumberColumn("X 👤", min_value=0, help="Number of X Creators"),
-            "X Tweets": st.column_config.NumberColumn("Tweet/p", min_value=0, help="Tweets per person"),
-        },
-        hide_index=True,
-        use_container_width=True,
-        height=300
-    )
+# --- 4. DATA EDITOR ĐỘNG (DYNAMIC) ---
+# Tạo Dataframe gốc chứa tất cả các cột có thể có
+base_data = [
+    {"Tier": "Nano (1k-10k)",     "Qty IG": 3, "IG Posts": 2, "IG Stories": 1, "Qty TikTok": 1, "TT Videos": 1, "Qty X": 0, "X Tweets": 0},
+    {"Tier": "Micro (10k-50k)",   "Qty IG": 1, "IG Posts": 2, "IG Stories": 1, "Qty TikTok": 1, "TT Videos": 1, "Qty X": 0, "X Tweets": 0},
+    {"Tier": "Mid (50k-150k)",    "Qty IG": 1, "IG Posts": 2, "IG Stories": 0, "Qty TikTok": 1, "TT Videos": 1, "Qty X": 0, "X Tweets": 0},
+    {"Tier": "Macro (150k-500k)", "Qty IG": 0, "IG Posts": 1, "IG Stories": 1, "Qty TikTok": 0, "TT Videos": 1, "Qty X": 0, "X Tweets": 0},
+    {"Tier": "Mega (500k+)",      "Qty IG": 0, "IG Posts": 1, "IG Stories": 1, "Qty TikTok": 0, "TT Videos": 1, "Qty X": 0, "X Tweets": 0},
+]
+full_df = pd.DataFrame(base_data)
 
-# --- 5. TÍNH TOÁN & HIỂN THỊ ---
+# XÂY DỰNG DANH SÁCH CỘT CẦN HIỂN THỊ DỰA TRÊN LỰA CHỌN
+visible_cols = ["Tier"]
+column_config_dynamic = {
+    "Tier": st.column_config.TextColumn("Tier", disabled=True, width="medium"),
+}
+
+if "Instagram" in platforms:
+    visible_cols.extend(["Qty IG", "IG Posts", "IG Stories"])
+    column_config_dynamic.update({
+        "Qty IG": st.column_config.NumberColumn("IG 👤", min_value=0, help="Số lượng Creator IG"),
+        "IG Posts": st.column_config.NumberColumn("Post/p", min_value=0),
+        "IG Stories": st.column_config.NumberColumn("Story/p", min_value=0),
+    })
+
+if "TikTok" in platforms:
+    visible_cols.extend(["Qty TikTok", "TT Videos"])
+    column_config_dynamic.update({
+        "Qty TikTok": st.column_config.NumberColumn("TT 👤", min_value=0, help="Số lượng Creator TikTok"),
+        "TT Videos": st.column_config.NumberColumn("Vid/p", min_value=0),
+    })
+
+if "X (Twitter)" in platforms:
+    visible_cols.extend(["Qty X", "X Tweets"])
+    column_config_dynamic.update({
+        "Qty X": st.column_config.NumberColumn("X 👤", min_value=0, help="Số lượng Creator X"),
+        "X Tweets": st.column_config.NumberColumn("Tweet/p", min_value=0),
+    })
+
+# HIỂN THỊ BẢNG ĐÃ LỌC CỘT
+# Lưu ý: Chúng ta lọc cột của dataframe TRƯỚC khi đưa vào data_editor
+edited_df = st.data_editor(
+    full_df[visible_cols], # Chỉ lấy các cột user đã chọn
+    column_config=column_config_dynamic,
+    hide_index=True,
+    use_container_width=True,
+    key="matrix_editor"
+)
+
+# --- 5. TÍNH TOÁN KẾT QUẢ ---
+# Hàm tính toán sẽ nhận dataframe chỉ có các cột hiển thị, 
+# nhưng nhờ lệnh .get() bên trong hàm, nó sẽ coi các cột thiếu là 0
 total_creators, cogs_influencer, total_reach, breakdown = calculate_multi_platform_cost(edited_df)
 
-# Các chi phí khác
 cogs_boosting = campaign_fee * 0.15
-# Staff Cost: Giả sử mỗi creator tốn 5h quản lý, mỗi platform thêm độ khó
-staff_hours = 100 + (total_creators * 3) 
+staff_hours = 100 + (total_creators * 3)
 internal_cost = staff_hours * 100
 
 total_cogs = cogs_influencer + cogs_boosting + internal_cost
@@ -158,9 +169,9 @@ margin = campaign_fee - total_cogs
 margin_pct = (margin / campaign_fee * 100) if campaign_fee > 0 else 0
 margin_color = "#2E7D32" if margin >= 0 else "#D32F2F"
 
-# Render kết quả
+# --- 6. HIỂN THỊ KẾT QUẢ ---
 with col_main:
-    # 1. HTML Card Summary
+    # Card HTML hiển thị (đã xử lý textwrap)
     html_content = textwrap.dedent(f"""
         <div style="background-color: #FFF8E1; padding: 20px; border-radius: 10px; border: 1px solid #FFECB3; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -192,9 +203,9 @@ with col_main:
                 <strong>${cogs_influencer:,.0f}</strong>
             </div>
             <div style="padding-left: 15px; font-size: 0.9em; color: #666; margin-bottom: 10px; border-left: 3px solid #eee;">
-                <div>• Instagram: ${breakdown['IG']:,.0f}</div>
-                <div>• TikTok: ${breakdown['TT']:,.0f}</div>
-                <div>• X (Twitter): ${breakdown['X']:,.0f}</div>
+                {f"<div>• Instagram: ${breakdown['IG']:,.0f}</div>" if breakdown['IG']>0 else ""}
+                {f"<div>• TikTok: ${breakdown['TT']:,.0f}</div>" if breakdown['TT']>0 else ""}
+                {f"<div>• X (Twitter): ${breakdown['X']:,.0f}</div>" if breakdown['X']>0 else ""}
             </div>
             
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
@@ -213,19 +224,21 @@ with col_main:
     
     st.write("") # Spacer
 
-    # 2. Performance Metrics
+    # Metrics
     m1, m2, m3 = st.columns(3)
-    m1.metric("Total Creators", total_creators, help="Tổng số KOLs huy động")
-    m2.metric("Est. Total Reach", f"{int(total_reach):,}", help="Tổng lượng follower tiếp cận")
-    m3.metric("CPM (Content only)", f"${(cogs_influencer/total_reach*1000) if total_reach else 0:.2f}", help="Cost per 1000 Reach (chỉ tính phí KOL)")
+    m1.metric("Total Creators", total_creators)
+    m2.metric("Est. Total Reach", f"{int(total_reach):,}")
+    cpm = (cogs_influencer/total_reach*1000) if total_reach > 0 else 0
+    m3.metric("CPM (Content)", f"${cpm:.2f}")
 
-    # 3. Chart phân bổ ngân sách
-    st.subheader("Budget Allocation by Platform")
+    # Chart
     if cogs_influencer > 0:
-        chart_data = pd.DataFrame({
-            "Platform": ["Instagram", "TikTok", "X (Twitter)"],
-            "Cost": [breakdown['IG'], breakdown['TT'], breakdown['X']]
-        })
-        st.bar_chart(chart_data, x="Platform", y="Cost", color="#F57F17")
-    else:
-        st.info("Add influencers to see cost breakdown.")
+        st.subheader("Platform Spend")
+        # Lọc chart data chỉ hiển thị platform có chi phí > 0
+        chart_data = []
+        if breakdown['IG'] > 0: chart_data.append({"Platform": "Instagram", "Cost": breakdown['IG']})
+        if breakdown['TT'] > 0: chart_data.append({"Platform": "TikTok", "Cost": breakdown['TT']})
+        if breakdown['X'] > 0: chart_data.append({"Platform": "X (Twitter)", "Cost": breakdown['X']})
+        
+        if chart_data:
+            st.bar_chart(pd.DataFrame(chart_data), x="Platform", y="Cost", color="#F57F17")
