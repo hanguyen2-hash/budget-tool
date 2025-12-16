@@ -3,243 +3,152 @@ import pandas as pd
 import numpy as np
 import textwrap
 
-# --- 1. CẤU HÌNH TRANG ---
+# --- 1. CẤU HÌNH & DATA THAM CHIẾU (Dựa trên ảnh Excel của bạn) ---
 st.set_page_config(page_title="Agency Budget Proposal", layout="wide")
 
-st.title("🤖 Budget Generator")
-st.markdown("---")
-
-
-MODEL_COEFFICIENTS = {
-    "Delivery Chief": {
-        "Intercept": -1.0, # Giảm từ 1.5 xuống -1.0
-        "guaranteed_creators": 0.005, 
-        "duration_weeks": 0.02,
-        "Client_Difficulty_Rating": 0.05, 
-        "vn_vetting_yes": 0.0, 
-        "Sector_Public": 0.1
-    },
-    "Acct Supervisor US": {
-        "Intercept": 0.5, # Giảm từ 2.0 xuống 0.5
-        "guaranteed_creators": 0.01, 
-        "duration_weeks": 0.03,
-        "Client_Difficulty_Rating": 0.1, 
-        "vn_vetting_yes": 0.05, 
-        "Sector_Public": 0.0
-    },
-    "Acct Manager US": {
-        "Intercept": 1.2, # Giảm từ 3.2 xuống 1.2 (Quan trọng)
-        "guaranteed_creators": 0.015, 
-        "duration_weeks": 0.05,
-        "Client_Difficulty_Rating": 0.1, 
-        "vn_vetting_yes": 0.0, 
-        "Sector_Public": 0.1
-    },
-    "Assistant SA": {
-        "Intercept": 1.0, # Giảm từ 3.0 xuống 1.0
-        "guaranteed_creators": 0.02, 
-        "duration_weeks": 0.05,
-        "Client_Difficulty_Rating": 0.02, 
-        "vn_vetting_yes": 0.1, 
-        "Sector_Public": 0.0
-    },
-    "Tech Prod Head": {
-        "Intercept": -2.0, 
-        "guaranteed_creators": 0.001, 
-        "duration_weeks": 0.01,
-        "Client_Difficulty_Rating": 0.0, 
-        "vn_vetting_yes": 0.0, 
-        "Sector_Public": 0.0
-    }
+# Database giá và follower trung bình (Lấy từ cột Instagram trong ảnh)
+TIER_DATA = {
+    "Nano (1k-10k)":      {"avg_flw": 3258,    "price_post": 268,   "price_story": 160},
+    "Micro (10k-50k)":    {"avg_flw": 21417,   "price_post": 443,   "price_story": 301},
+    "Mid (50k-150k)":     {"avg_flw": 87664,   "price_post": 1140,  "price_story": 783},
+    "Macro (150k-500k)":  {"avg_flw": 264830,  "price_post": 3315,  "price_story": 2260},
+    "Mega (500k+)":       {"avg_flw": 2206768, "price_post": 11059, "price_story": 7525}
 }
 
-# --- 3. QUẢN LÝ SESSION STATE ---
-if 'budgets' not in st.session_state:
-    # Option 1 mặc định giống ảnh
-    st.session_state.budgets = [{
-        'id': 0, 'name': 'OPTION 1',
-        'money': 125000, 'creators': 27, 'duration': 14,
-        'client_diff': 3, 'mgmt_diff': 3, 'sector': 'General', 'vetting': 'No'
-    }]
-
-if 'next_id' not in st.session_state:
-    st.session_state.next_id = 1
-
-def add_budget():
-    new_id = st.session_state.next_id
-    st.session_state.budgets.append({
-        'id': new_id, 'name': f'OPTION {len(st.session_state.budgets) + 1}',
-        'money': 250000, 'creators': 63, 'duration': 14,
-        'client_diff': 3, 'mgmt_diff': 3, 'sector': 'General', 'vetting': 'No'
-    })
-    st.session_state.next_id += 1
-
-def delete_budget(index):
-    st.session_state.budgets.pop(index)
-
-# --- 4. ENGINE TÍNH TOÁN ---
-def calculate_hours_for_option(coeffs, inputs):
-    linear_y = coeffs.get("Intercept", 0)
-    linear_y += coeffs.get("guaranteed_creators", 0) * inputs['creators']
-    linear_y += coeffs.get("duration_weeks", 0) * inputs['duration']
-    linear_y += coeffs.get("Client_Difficulty_Rating", 0) * inputs['client_diff']
-    linear_y += coeffs.get("Influencer_Management_Difficulty_Rating", 0) * inputs['mgmt_diff']
+# --- 2. HÀM TÍNH TOÁN (LOGIC MỚI) ---
+def calculate_mix_metrics(mix_df):
+    """Tính toán tổng hợp dựa trên bảng phân bổ"""
+    total_creators = 0
+    total_cost_influencer = 0
+    total_reach_raw = 0
     
-    sector_key = f"Sector_{inputs['sector']}"
-    if sector_key in coeffs:
-        linear_y += coeffs[sector_key]
+    for index, row in mix_df.iterrows():
+        tier = row['Tier']
+        qty = row['Quantity']
+        posts = row['Posts/Infl']
+        stories = row['Stories/Infl']
         
-    if inputs['vetting'] == "Yes":
-        linear_y += coeffs.get("vn_vetting_yes", 0)
-        
-    return np.exp(linear_y)
+        if qty > 0:
+            ref = TIER_DATA[tier]
+            
+            # 1. Tính Cost (COGS Influencer)
+            cost_per_person = (ref['price_post'] * posts) + (ref['price_story'] * stories)
+            total_cost_influencer += cost_per_person * qty
+            
+            # 2. Tính Reach (Giả định Reach = Follower * Qty)
+            # Lưu ý: Bạn có thể nhân thêm hệ số reach rate (ví dụ 0.3) nếu muốn
+            total_reach_raw += (ref['avg_flw'] * qty)
+            
+            total_creators += qty
+            
+    return total_creators, total_cost_influencer, total_reach_raw
 
-# --- 5. SIDEBAR ---
+# --- 3. GIAO DIỆN CHÍNH ---
+st.title("🤖 Budget Generator (Tier-based)")
+st.markdown("---")
+
+# --- SIDEBAR: CẤU HÌNH PLAN ---
 with st.sidebar:
-    st.header("🎚️ Project Settings")
-    st.button("➕ Add Comparison Option", on_click=add_budget, use_container_width=True)
-    st.divider()
-
-    for i, budget in enumerate(st.session_state.budgets):
-        unique_id = budget['id']
-        with st.expander(f"📂 {budget['name']}", expanded=(i==0)):
-            budget['name'] = st.text_input("Name", value=budget['name'], key=f"name_{unique_id}")
-            budget['money'] = st.number_input("Budget ($)", value=budget['money'], step=5000, key=f"money_{unique_id}")
-            budget['creators'] = st.number_input("Creators", value=budget['creators'], step=1, key=f"creat_{unique_id}")
-            budget['duration'] = st.number_input("Duration (Weeks)", value=budget['duration'], key=f"dur_{unique_id}")
-            
-            st.caption("Advanced Factors")
-            budget['client_diff'] = st.slider("Client Diff", 1, 5, budget['client_diff'], key=f"cdiff_{unique_id}")
-            budget['mgmt_diff'] = st.slider("Mgmt Diff", 1, 5, budget['mgmt_diff'], key=f"mdiff_{unique_id}")
-            budget['sector'] = st.selectbox("Sector", ["General", "Public", "Tech", "Consumer"], index=["General", "Public", "Tech", "Consumer"].index(budget['sector']), key=f"sec_{unique_id}")
-            budget['vetting'] = st.selectbox("VN Vetting?", ["No", "Yes"], index=["No", "Yes"].index(budget['vetting']), key=f"vet_{unique_id}")
-            
-            if len(st.session_state.budgets) > 1:
-                st.button("🗑️ Delete", key=f"del_{unique_id}", on_click=delete_budget, args=(i,), type="primary")
-
-# --- 6. MAIN DISPLAY (TABS) ---
-if not st.session_state.budgets:
-    st.warning("Please add an option from the sidebar.")
-    st.stop()
-
-tab_names = ["📊 EXECUTIVE SUMMARY"] + [f"🔎 {b['name']} Details" for b in st.session_state.budgets]
-tabs = st.tabs(tab_names)
-
-# === TAB 1: SUMMARY GIỐNG ẢNH ===
-# === TAB 1: SUMMARY (ĐÃ SỬA LỖI HIỂN THỊ TRIỆT ĐỂ) ===
-with tabs[0]:
-    # Tạo cột động dựa trên số lượng option
-    cols = st.columns(len(st.session_state.budgets))
+    st.header("🎚️ Campaign Input")
     
-    for i, budget in enumerate(st.session_state.budgets):
-        with cols[i]:
-            # --- TÍNH TOÁN SỐ LIỆU ---
-            total_hours = 0
-            breakdown_html = ""
-            for role, coeffs in MODEL_COEFFICIENTS.items():
-                hrs = calculate_hours_for_option(coeffs, budget)
-                total_hours += hrs
-                # Tạo các dòng nhỏ breakdown
-                breakdown_html += f"<div><small>{role}: {int(hrs)} hrs</small></div>"
-            
-            internal_cost = total_hours * 100 
-            
-            est_reach = budget['creators'] * 14000
-            est_impr = est_reach * 4.3 
-            cogs_influencer = budget['money'] * 0.3
-            cogs_boosting = budget['money'] * 0.15
-            margin = budget['money'] - cogs_influencer - cogs_boosting - internal_cost
-            margin_pct = (margin / budget['money']) * 100 if budget['money'] > 0 else 0
+    # INPUT 1: Tổng ngân sách khách hàng trả (Fee)
+    campaign_budget = st.number_input("Total Client Budget ($)", value=125000, step=5000)
+    
+    st.divider()
+    st.subheader("Influencer Mix Strategy")
+    
+    # INPUT 2: Bảng nhập liệu Mix (Thay thế cho các slider đơn lẻ)
+    # Tạo dữ liệu mặc định ban đầu
+    default_data = pd.DataFrame([
+        {"Tier": "Nano (1k-10k)",     "Quantity": 4, "Posts/Infl": 2, "Stories/Infl": 1},
+        {"Tier": "Micro (10k-50k)",   "Quantity": 2, "Posts/Infl": 2, "Stories/Infl": 1},
+        {"Tier": "Mid (50k-150k)",    "Quantity": 1, "Posts/Infl": 1, "Stories/Infl": 1},
+        {"Tier": "Macro (150k-500k)", "Quantity": 0, "Posts/Infl": 1, "Stories/Infl": 0},
+        {"Tier": "Mega (500k+)",      "Quantity": 0, "Posts/Infl": 1, "Stories/Infl": 0},
+    ])
+    
+    # Hiển thị bảng cho người dùng sửa
+    edited_df = st.data_editor(
+        default_data,
+        column_config={
+            "Tier": st.column_config.TextColumn("Tier", disabled=True), # Không cho sửa tên Tier
+            "Quantity": st.column_config.NumberColumn("Qty Creators", min_value=0, step=1),
+            "Posts/Infl": st.column_config.NumberColumn("Posts/Inf", min_value=0, step=1),
+            "Stories/Infl": st.column_config.NumberColumn("Stories/Inf", min_value=0, step=1),
+        },
+        hide_index=True,
+        use_container_width=True
+    )
+    
+    st.caption("Edit the table above to configure the mix.")
 
-            # Logic màu sắc
-            margin_color = "#2E7D32" if margin >= 0 else "#D32F2F"
-            earning_color = "#2E7D32" if margin >= 0 else "#D32F2F"
+# --- 4. TÍNH TOÁN KẾT QUẢ TỪ BẢNG ---
+# Gọi hàm tính toán
+total_creators, est_cogs_influencer, est_reach = calculate_mix_metrics(edited_df)
 
-            # --- RENDER HTML CARD ---
-            # Kỹ thuật: Viết HTML thoải mái, sau đó dùng lệnh .strip() để làm sạch
-            raw_html = f"""
-                <div style="background-color: #D32F2F; color: white; padding: 10px; text-align: center; border-radius: 5px 5px 0 0;">
-                    <h3 style="margin:0; color: white;">{budget['name']}</h3>
-                    <h1 style="margin:0; font-size: 32px; color: white;">${budget['money']:,.0f}</h1>
-                    <small>discounted from ${budget['money']*1.1:,.0f} market value</small>
-                </div>
+# Các chi phí khác (Giữ nguyên logic cũ hoặc chỉnh sửa tùy ý)
+est_cogs_boosting = campaign_budget * 0.15  # 15% cho Ads
+est_impr = est_reach * 1.5                  # Giả định Impression = 1.5 * Reach (hoặc số khác)
 
-                <div style="background-color: white; padding: 15px; border: 1px solid #ddd; border-top: none;">
-                    <h5 style="margin-top:0;">Minimum guarantee</h5>
-                    <p><strong>{budget['creators']}+</strong> <span style="color:gray">social posts & stories</span></p>
-                    <p><strong>{int(est_reach):,}+</strong> <span style="color:gray">est. reach (not impressions)</span></p>
-                    <p><strong>{int(est_impr):,}+</strong> <span style="color:gray">est. impressions</span></p>
-                    <p><strong>{max(1, int(budget['creators']/3))}+</strong> <span style="color:gray">trusted messengers</span></p>
-                </div>
+# Tính Staff Hours (Logic cũ - đơn giản hóa)
+# Vì logic cũ dùng hệ số hồi quy phức tạp, ở đây mình tạm tính đơn giản để demo luồng
+# Bạn có thể map lại vào hàm hồi quy cũ nếu cần
+est_staff_hours = 100 + (total_creators * 2.5) 
+internal_cost = est_staff_hours * 100 
 
-                <div style="background-color: #E8F5E9; padding: 15px; border: 1px solid #ddd; margin-top: -1px;">
-                    <h5 style="margin-top:0; color: #D32F2F;">NOTE for Delivery Team</h5>
-                    <p style="margin-bottom: 5px;"><strong>{int(total_hours)} est. Agency staff hours</strong></p>
-                    <div style="padding-left: 10px; color: #555; margin-bottom: 10px;">
-                        {breakdown_html}
-                    </div>
-                    <small>• Avg IG follower: 19,500</small><br>
-                    <small>• CPM (boosting): $31.47</small>
-                </div>
+# Tính Margin
+total_cogs = est_cogs_influencer + est_cogs_boosting + internal_cost
+margin = campaign_budget - total_cogs
+margin_pct = (margin / campaign_budget * 100) if campaign_budget > 0 else 0
+margin_color = "#2E7D32" if margin >= 0 else "#D32F2F"
 
-                <div style="background-color: #FFF3E0; padding: 15px; border: 1px solid #ddd; margin-top: -1px; border-radius: 0 0 5px 5px;">
-                    <h5 style="margin-top:0; color: #D32F2F;">DEAL MARGIN Analysis</h5>
-                    
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>Campaign Fee</span>
-                        <strong>${budget['money']:,.0f}</strong>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; color: #555;">
-                        <span>COGS - Boosting</span>
-                        <span>-${cogs_boosting:,.0f}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; color: #555;">
-                        <span>COGS - Influencers</span>
-                        <span>-${cogs_influencer:,.0f}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; color: #555;">
-                        <span>Internal Staff Cost</span>
-                        <span>-${internal_cost:,.0f}</span>
-                    </div>
-                    
-                    <hr style="margin: 5px 0;">
-                    
-                    <div style="display: flex; justify-content: space-between;">
-                        <strong>NET EARNINGS</strong>
-                        <strong style="color: {earning_color};">${margin:,.0f}</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>Margin %</span>
-                        <strong style="color: {margin_color};">{margin_pct:.1f}%</strong>
-                    </div>
-                </div>
-            """
-            
-            # --- FIX FINAL: CẮT BỎ MỌI KHOẢNG TRẮNG THỪA ---
-            # Dòng code này sẽ duyệt qua từng dòng HTML và xóa sạch khoảng trắng đầu dòng
-            # Đảm bảo Streamlit luôn nhận diện đúng code HTML
-            clean_html = "\n".join([line.strip() for line in raw_html.split("\n")])
-            
-            st.markdown(clean_html, unsafe_allow_html=True)
-            
-# === CÁC TAB CHI TIẾT (GIỮ NGUYÊN CODE CŨ) ===
-for i, budget in enumerate(st.session_state.budgets):
-    with tabs[i + 1]:
-        # Tính toán lại để hiển thị biểu đồ chi tiết
-        total_hours_option = 0
-        breakdown = []
-        for role, coeffs in MODEL_COEFFICIENTS.items():
-            hours = calculate_hours_for_option(coeffs, budget)
-            total_hours_option += hours
-            breakdown.append({"Role": role, "Hours": round(hours, 1)})
-            
-        st.subheader(f"📊 Detailed Breakdown: {budget['name']}")
+# --- 5. HIỂN THỊ KẾT QUẢ (CARD HTML) ---
+# Dùng textwrap.dedent + strip như đã hướng dẫn trước đó để không bị lỗi hiển thị
+html_content = textwrap.dedent(f"""
+    <div style="background-color: #FFF3E0; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">
+        <h3 style="margin-top:0; color: #D32F2F; text-align: center;">DEAL MARGIN ANALYSIS</h3>
+        <p style="text-align: center; color: gray; font-size: 0.9em;">Based on Mix: {total_creators} Creators</p>
+        <hr>
         
-        c1, c2 = st.columns([1, 2])
-        with c1:
-            st.dataframe(pd.DataFrame(breakdown), use_container_width=True, hide_index=True)
-        with c2:
-            st.bar_chart(pd.DataFrame(breakdown).set_index("Role"))
+        <div style="display: flex; justify-content: space-between;">
+            <span>Campaign Fee (Revenue)</span>
+            <strong>${campaign_budget:,.0f}</strong>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; color: #555; margin-top: 10px;">
+            <span>COGS - Influencers (Calculated)</span>
+            <span style="color: #D32F2F">-${est_cogs_influencer:,.0f}</span>
+        </div>
+        <small style="color: gray; display: block; text-align: right;">(Avg cost/creator: ${est_cogs_influencer/total_creators if total_creators else 0:,.0f})</small>
+        
+        <div style="display: flex; justify-content: space-between; color: #555;">
+            <span>COGS - Boosting (15%)</span>
+            <span style="color: #D32F2F">-${est_cogs_boosting:,.0f}</span>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; color: #555;">
+            <span>Internal Staff Cost</span>
+            <span style="color: #D32F2F">-${internal_cost:,.0f}</span>
+        </div>
+        
+        <hr style="margin: 15px 0;">
+        
+        <div style="display: flex; justify-content: space-between; font-size: 1.2em;">
+            <strong>NET EARNINGS</strong>
+            <strong style="color: {margin_color};">${margin:,.0f}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span>Margin %</span>
+            <strong style="color: {margin_color};">{margin_pct:.1f}%</strong>
+        </div>
+    </div>
+    
+    <div style="margin-top: 20px; background-color: white; padding: 15px; border: 1px solid #eee; border-radius: 5px;">
+        <h5 style="margin:0">Estimated Performance</h5>
+        <p><strong>{int(est_reach):,}</strong> <span style="color:gray">Total Reach</span></p>
+        <p><strong>{int(est_impr):,}</strong> <span style="color:gray">Est. Impressions</span></p>
+    </div>
+""")
+
+clean_html = "\n".join([line.strip() for line in html_content.split("\n")])
+st.markdown(clean_html, unsafe_allow_html=True)
