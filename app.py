@@ -8,11 +8,11 @@ st.set_page_config(page_title="Dynamic Budget Tool", layout="wide")
 # --- 1. CẤU HÌNH DỮ LIỆU GỐC (BASE RATE CARD) ---
 # Dữ liệu từ ảnh bạn cung cấp
 INITIAL_RATE_CARD = [
-    {"Tier": "Nano (1k-10k)",      "IG Post ($)": 268.22,   "IG Story ($)": 160.24,  "TT Flw": 4373,    "TT Video ($)": 184.57,  "X Flw": 4952,    "X Tweet ($)": 131.34},
-    {"Tier": "Micro (10k-50k)",     "IG Post ($)": 443.84,   "IG Story ($)": 301.84,  "TT Flw": 25013,   "TT Video ($)": 335.92,  "X Flw": 21765,   "X Tweet ($)": 207.33},
-    {"Tier": "Mid (50k-150k)",      "IG Post ($)": 1140.22,  "IG Story ($)": 783.57,  "TT Flw": 90230,   "TT Video ($)": 697.04,  "X Flw": 85206,   "X Tweet ($)": 504.20},
-    {"Tier": "Macro (150k-500k)",   "IG Post ($)": 3315.63,  "IG Story ($)": 2260.49, "TT Flw": 275338,  "TT Video ($)": 1806.50, "X Flw": 266771,  "X Tweet ($)": 1490.99},
-    {"Tier": "Mega (500k+)",       "IG Post ($)": 11059.85, "IG Story ($)": 7525.33, "TT Flw": 2087679, "TT Video ($)": 5757.25, "X Flw": 1838483, "X Tweet ($)": 4656.37},
+    {"Tier": "Nano (1k-10k)",     "IG Flw": 3258,    "IG Post ($)": 268.22,   "IG Story ($)": 160.24,  "TT Flw": 4373,    "TT Video ($)": 184.57,  "X Flw": 4952,    "X Tweet ($)": 131.34},
+    {"Tier": "Micro (10k-50k)",   "IG Flw": 21417,   "IG Post ($)": 443.84,   "IG Story ($)": 301.84,  "TT Flw": 25013,   "TT Video ($)": 335.92,  "X Flw": 21765,   "X Tweet ($)": 207.33},
+    {"Tier": "Mid (50k-150k)",    "IG Flw": 87664,   "IG Post ($)": 1140.22,  "IG Story ($)": 783.57,  "TT Flw": 90230,   "TT Video ($)": 697.04,  "X Flw": 85206,   "X Tweet ($)": 504.20},
+    {"Tier": "Macro (150k-500k)", "IG Flw": 264830,  "IG Post ($)": 3315.63,  "IG Story ($)": 2260.49, "TT Flw": 275338,  "TT Video ($)": 1806.50, "X Flw": 266771,  "X Tweet ($)": 1490.99},
+    {"Tier": "Mega (500k+)",      "IG Flw": 2206768, "IG Post ($)": 11059.85, "IG Story ($)": 7525.33, "TT Flw": 2087679, "TT Video ($)": 5757.25, "X Flw": 1838483, "X Tweet ($)": 4656.37},
 ]
 
 # --- 2. HÀM CHUYỂN ĐỔI DATAFRAME -> DICTIONARY ---
